@@ -21,14 +21,14 @@ import warnings
 # Suppress warnings to make the output cleaner
 warnings.filterwarnings('ignore', category=UserWarning)
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='../templates', static_folder='../static')
 app.secret_key = "exoplanet_secret_key"
 
 # Configure upload folder
-# Configure upload folder
-UPLOAD_FOLDER = 'static/uploads'
+# Configure upload folder - relative to the app file's parent (root)
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'static', 'uploads')
 if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Allowed file extensions
@@ -60,7 +60,8 @@ def create_fallback_dt_pipeline():
 
 try:
     # Try to load XGBoost model with proper handling for version differences
-    with open("Models/xgb_exoplanet_model.pkl", "rb") as f:
+    model_path = os.path.join(os.path.dirname(__file__), '..', 'Models', 'xgb_exoplanet_model.pkl')
+    with open(model_path, "rb") as f:
         try:
             xgb_model = pickle.load(f)
             # Test if the model works with 26 features
