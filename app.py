@@ -59,7 +59,7 @@ def create_fallback_dt_pipeline():
 
 try:
     # Try to load XGBoost model with proper handling for version differences
-    with open("../Models/xgb_exoplanet_model.pkl", "rb") as f:
+    with open("Models/xgb_exoplanet_model.pkl", "rb") as f:
         try:
             xgb_model = pickle.load(f)
             # Test if the model works with 26 features
