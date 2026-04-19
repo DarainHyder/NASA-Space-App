@@ -46,20 +46,37 @@
         <div class="col-12">
             <h3 class="Michroma h5 mb-4 accent-text">SPECTRAL DATA VISUALIZATION</h3>
             <div class="row g-4">
-                {% if visualizations.distributions %}
-                <div class="col-lg-6">
-                    <div class="glass-panel p-2">
-                        <img src="data:image/png;base64,{{ visualizations.distributions }}" class="img-fluid" style="filter: invert(0.9) hue-rotate(180deg) brightness(1.2);">
+                <div class="col-lg-4 col-md-6">
+                    <div class="glass-panel p-3">
+                        <h6 class="text-muted small mb-3 uppercase">Orbital Period Distribution</h6>
+                        <canvas id="orbperChart" style="max-height: 200px;"></canvas>
                     </div>
                 </div>
-                {% endif %}
-                {% if visualizations.correlation %}
-                <div class="col-lg-6">
-                    <div class="glass-panel p-2">
-                        <img src="data:image/png;base64,{{ visualizations.correlation }}" class="img-fluid" style="filter: invert(0.9) hue-rotate(180deg) brightness(1.2);">
+                <div class="col-lg-4 col-md-6">
+                    <div class="glass-panel p-3">
+                        <h6 class="text-muted small mb-3 uppercase">Planet Radius Distribution</h6>
+                        <canvas id="radeChart" style="max-height: 200px;"></canvas>
                     </div>
                 </div>
-                {% endif %}
+                <div class="col-lg-4 col-md-6">
+                    <div class="glass-panel p-3">
+                        <h6 class="text-muted small mb-3 uppercase">Prediction Distribution</h6>
+                        <canvas id="predChart" style="max-height: 200px;"></canvas>
+                    </div>
+                </div>
+                <!-- Row 2 -->
+                <div class="col-lg-4 col-md-6">
+                    <div class="glass-panel p-3">
+                        <h6 class="text-muted small mb-3 uppercase">Stellar Temperature Distribution</h6>
+                        <canvas id="teffChart" style="max-height: 200px;"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="glass-panel p-3">
+                        <h6 class="text-muted small mb-3 uppercase">Distance Distribution</h6>
+                        <canvas id="distChart" style="max-height: 200px;"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -105,4 +122,64 @@
         color: #fff !important;
     }
 </style>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    const vizData = {{ visualizations | tojson }};
+    const commonOptions = {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { ticks: { color: 'rgba(255,255,255,0.5)' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+            x: { ticks: { display: false }, grid: { display: false } }
+        }
+    };
+
+    function createHistData(data, color) {
+        // Simple binning for histograms
+        const bins = 20;
+        const min = Math.min(...data);
+        const max = Math.max(...data);
+        const range = (max - min) / bins;
+        const bucketCounts = new Array(bins).fill(0);
+        data.forEach(v => {
+            let bucket = Math.floor((v - min) / range);
+            if (bucket >= bins) bucket = bins - 1;
+            bucketCounts[bucket]++;
+        });
+        return {
+            labels: new Array(bins).fill(''),
+            datasets: [{
+                data: bucketCounts,
+                backgroundColor: color,
+                borderColor: color,
+                borderWidth: 1
+            }]
+        };
+    }
+
+    if (vizData.features) {
+        new Chart(document.getElementById('orbperChart'), { type: 'bar', data: createHistData(vizData.features.orbper, '#00f3ff'), options: commonOptions });
+        new Chart(document.getElementById('radeChart'), { type: 'bar', data: createHistData(vizData.features.rade, '#00ff88'), options: commonOptions });
+        new Chart(document.getElementById('teffChart'), { type: 'bar', data: createHistData(vizData.features.teff, '#ff8800'), options: commonOptions });
+        new Chart(document.getElementById('distChart'), { type: 'bar', data: createHistData(vizData.features.dist, '#ff0055'), options: commonOptions });
+    }
+
+    if (vizData.predictions) {
+        new Chart(document.getElementById('predChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Candidate', 'Confirmed'],
+                datasets: [{
+                    data: [vizData.predictions.candidate, vizData.predictions.confirmed],
+                    backgroundColor: ['#ff0055', '#00ff88'],
+                    borderColor: 'transparent'
+                }]
+            },
+            options: { ...commonOptions, plugins: { legend: { display: true, position: 'bottom', labels: { color: '#fff' } } } }
+        });
+    }
+</script>
 {% endblock %}

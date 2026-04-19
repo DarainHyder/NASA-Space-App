@@ -2,10 +2,12 @@ import os
 import pickle
 import pandas as pd
 import numpy as np
-import matplotlib
-matplotlib.use('Agg')  # Use non-interactive backend
-import matplotlib.pyplot as plt
-import seaborn as sns
+# Removed matplotlib and seaborn to reduce bundle size for Vercel deployment
+# Visualization data is now passed to the frontend for Chart.js rendering
+# import matplotlib
+# matplotlib.use('Agg')
+# import matplotlib.pyplot as plt
+# import seaborn as sns
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 from io import BytesIO
@@ -247,91 +249,25 @@ def preprocess_data(df):
     return df_final
 
 def create_visualizations(df, predictions=None, prediction_probs=None):
-    """Create various visualizations for the data"""
-    visualizations = {}
+    """Return raw data for visualizations instead of generating images on the backend"""
+    visualizations_data = {
+        'features': {
+            'orbper': df['pl_orbper'].tolist() if 'pl_orbper' in df.columns else [],
+            'rade': df['pl_rade'].tolist() if 'pl_rade' in df.columns else [],
+            'teff': df['st_teff'].tolist() if 'st_teff' in df.columns else [],
+            'dist': df['sy_dist'].tolist() if 'sy_dist' in df.columns else []
+        }
+    }
     
-    try:
-        # 1. Distribution of key features
-        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-        fig.suptitle('Distribution of Key Features', fontsize=16)
-        
-        # Orbital period
-        axes[0, 0].hist(df['pl_orbper'], bins=20, alpha=0.7)
-        axes[0, 0].set_title('Orbital Period (days)')
-        axes[0, 0].set_xlabel('Days')
-        axes[0, 0].set_ylabel('Frequency')
-        
-        # Planet radius
-        axes[0, 1].hist(df['pl_rade'], bins=20, alpha=0.7, color='green')
-        axes[0, 1].set_title('Planet Radius (Earth radii)')
-        axes[0, 1].set_xlabel('Earth Radii')
-        axes[0, 1].set_ylabel('Frequency')
-        
-        # Stellar temperature
-        axes[1, 0].hist(df['st_teff'], bins=20, alpha=0.7, color='orange')
-        axes[1, 0].set_title('Stellar Temperature (K)')
-        axes[1, 0].set_xlabel('Kelvin')
-        axes[1, 0].set_ylabel('Frequency')
-        
-        # System distance
-        axes[1, 1].hist(df['sy_dist'], bins=20, alpha=0.7, color='red')
-        axes[1, 1].set_title('System Distance (parsecs)')
-        axes[1, 1].set_xlabel('Parsecs')
-        axes[1, 1].set_ylabel('Frequency')
-        
-        plt.tight_layout(rect=[0, 0, 1, 0.95])
-        img = BytesIO()
-        plt.savefig(img, format='png')
-        img.seek(0)
-        visualizations['distributions'] = base64.b64encode(img.getvalue()).decode('utf-8')
-        plt.close()
-        
-        # 2. Correlation heatmap
-        corr_matrix = df.corr(numeric_only=True)
-        plt.figure(figsize=(12, 10))
-        sns.heatmap(corr_matrix, cmap="coolwarm", center=0, annot=False)
-        plt.title('Correlation Heatmap of Features', fontsize=16)
-        img = BytesIO()
-        plt.savefig(img, format='png')
-        img.seek(0)
-        visualizations['correlation'] = base64.b64encode(img.getvalue()).decode('utf-8')
-        plt.close()
-        
-        # 3. If predictions are available, create prediction visualizations
-        if predictions is not None:
-            # Prediction distribution
-            plt.figure(figsize=(8, 6))
-            prediction_counts = pd.Series(predictions).value_counts()
-            plt.bar(['Candidate', 'Confirmed'], prediction_counts.values, color=['red', 'green'])
-            plt.title('Prediction Distribution', fontsize=16)
-            plt.ylabel('Count')
-            img = BytesIO()
-            plt.savefig(img, format='png')
-            img.seek(0)
-            visualizations['prediction_distribution'] = base64.b64encode(img.getvalue()).decode('utf-8')
-            plt.close()
-            
-            # If probabilities are available, create ROC curve
-            if prediction_probs is not None:
-                plt.figure(figsize=(8, 6))
-                fpr, tpr, _ = roc_curve(predictions, prediction_probs)
-                plt.plot(fpr, tpr, linewidth=2)
-                plt.plot([0, 1], [0, 1], 'k--')
-                plt.axis([0, 1, 0, 1])
-                plt.xlabel('False Positive Rate')
-                plt.ylabel('True Positive Rate')
-                plt.title('ROC Curve', fontsize=16)
-                img = BytesIO()
-                plt.savefig(img, format='png')
-                img.seek(0)
-                visualizations['roc_curve'] = base64.b64encode(img.getvalue()).decode('utf-8')
-                plt.close()
-    except Exception as e:
-        print(f"Error creating visualizations: {str(e)}")
-        # Return empty visualizations if there's an error
-        pass
+    if predictions is not None:
+        pred_series = pd.Series(predictions)
+        counts = pred_series.value_counts().to_dict()
+        visualizations_data['predictions'] = {
+            'candidate': int(counts.get(0, 0)),
+            'confirmed': int(counts.get(1, 0))
+        }
     
-    return visualizations
+    return visualizations_data
 
 def calculate_metrics(y_true, y_pred, y_prob=None):
     """Calculate evaluation metrics"""

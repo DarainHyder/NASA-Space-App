@@ -2,9 +2,12 @@
 .vscode
 Notebook/
 Dataset/
-app/static/uploads/*
-!app/static/uploads/.gitkeep
+docs/
+static/uploads/*
+!static/uploads/.gitkeep
 __pycache__/
 *.pyc
 venv/
 .env
+.python-version
+vercel.json
