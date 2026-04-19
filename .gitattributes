@@ -1,3 +1,6 @@
+Models/xgb_exoplanet_model.pkl filter=lfs diff=lfs merge=lfs -text
+docs/Methedology.docx filter=lfs diff=lfs merge=lfs -text
+static/images/blackhole.png filter=lfs diff=lfs merge=lfs -text
 *.pkl filter=lfs diff=lfs merge=lfs -text
 *.docx filter=lfs diff=lfs merge=lfs -text
 *.png filter=lfs diff=lfs merge=lfs -text
