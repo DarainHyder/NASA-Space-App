@@ -1,319 +1,31 @@
 import os
-import pickle
+import requests
 import pandas as pd
-import numpy as np
-# Removed matplotlib and seaborn to reduce bundle size for Vercel deployment
-# Visualization data is now passed to the frontend for Chart.js rendering
-# import matplotlib
-# matplotlib.use('Agg')
-# import matplotlib.pyplot as plt
-# import seaborn as sns
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash
 from werkzeug.utils import secure_filename
-from io import BytesIO
-import base64
-from sklearn.preprocessing import StandardScaler
-from sklearn.impute import SimpleImputer
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_auc_score, roc_curve
-import xgboost as xgb
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.pipeline import Pipeline
-import warnings
-
-# Suppress warnings to make the output cleaner
-warnings.filterwarnings('ignore', category=UserWarning)
+import json
 
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
 app.secret_key = "exoplanet_secret_key"
 
 # Configure upload folder
-# Configure upload folder - relative to the app file's parent (root)
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'static', 'uploads')
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Allowed file extensions
+# Hugging Face API Configuration
+# USER: Set this Environment Variable in Vercel to your Hugging Face Space URL
+HF_API_URL = os.environ.get('HF_API_URL', 'https://darainhyder-nasa-space-api.hf.space/predict')
+
 ALLOWED_EXTENSIONS = {'csv'}
-
-# Try to load the models with error handling
-models_loaded = False
-xgb_model = None
-dt_model = None
-dt_pipeline = None
-
-# Create a simple Decision Tree model as fallback
-def create_fallback_dt_model():
-    """Create a simple Decision Tree model with the same parameters as the original"""
-    return DecisionTreeClassifier(
-        max_depth=4,
-        min_samples_split=30,
-        min_samples_leaf=15,
-        max_features="sqrt",
-        random_state=42
-    )
-
-def create_fallback_dt_pipeline():
-    """Create a simple Decision Tree pipeline with the same parameters as the original"""
-    return Pipeline([
-        ("imputer", SimpleImputer(strategy="median")),
-        ("clf", create_fallback_dt_model())
-    ])
-
-try:
-    # Try to load XGBoost model with proper handling for version differences
-    model_path = os.path.join(os.path.dirname(__file__), '..', 'Models', 'xgb_exoplanet_model.pkl')
-    with open(model_path, "rb") as f:
-        try:
-            xgb_model = pickle.load(f)
-            # Test if the model works with 26 features
-            test_data = np.zeros((1, 26))  # Create dummy data with expected feature count
-            _ = xgb_model.predict(test_data)
-            print("XGBoost model loaded successfully")
-        except Exception as e:
-            print(f"Error loading XGBoost model: {str(e)}")
-            # Try to handle the version difference by using save_model/load_model instead
-            try:
-                # Create a temporary file to save the model
-                temp_model_path = "temp_xgb_model.json"
-                with open(temp_model_path, "wb") as temp_f:
-                    temp_f.write(f.read())
-                
-                # Load using the XGBoost API
-                xgb_model = xgb.Booster()
-                xgb_model.load_model(temp_model_path)
-                print("XGBoost model loaded successfully using XGBoost API")
-                os.remove(temp_model_path)
-            except Exception as e2:
-                print(f"Failed to load XGBoost model with alternative method: {str(e2)}")
-                xgb_model = None
-    
-    # For Decision Tree, we'll create a new model with the same parameters
-    # and train it on dummy data to make it usable
-    try:
-        dt_model = create_fallback_dt_model()
-        
-        # Create dummy training data to fit the model
-        # This is a workaround since we can't load the original trained model
-        dummy_X = np.random.rand(100, 26)  # 100 samples, 26 features
-        dummy_y = np.random.randint(0, 2, 100)  # Binary classification
-        
-        dt_model.fit(dummy_X, dummy_y)
-        print("Created and fitted fallback Decision Tree model")
-    except Exception as e:
-        print(f"Error creating fallback Decision Tree model: {str(e)}")
-        dt_model = None
-    
-    # For Decision Tree pipeline, we'll create a new pipeline with the same parameters
-    # and train it on dummy data to make it usable
-    try:
-        dt_pipeline = create_fallback_dt_pipeline()
-        
-        # Create dummy training data to fit the pipeline
-        # Use column names to avoid the feature names warning
-        column_names = [
-            'sy_snum', 'sy_pnum', 'disc_year', 'pl_orbper', 'pl_orbsmax', 
-            'pl_rade', 'pl_radj', 'pl_bmasse', 'pl_bmassj', 'pl_orbeccen', 
-            'pl_insol', 'pl_eqt', 'st_teff', 'st_rad', 'st_mass', 'st_met', 
-            'st_logg', 'sy_dist', 'star_planet_size', 'temp_diff', 'log_insol',
-            'planets_per_system', 'stars_in_system', 'discoverymethod_MICROLENSING',
-            'discoverymethod_RADIAL VELOCITY', 'discoverymethod_TRANSIT'
-        ]
-        dummy_X = pd.DataFrame(np.random.rand(100, 26), columns=column_names)
-        dummy_y = np.random.randint(0, 2, 100)  # Binary classification
-        
-        dt_pipeline.fit(dummy_X, dummy_y)
-        print("Created and fitted fallback Decision Tree pipeline")
-    except Exception as e:
-        print(f"Error creating fallback Decision Tree pipeline: {str(e)}")
-        dt_pipeline = None
-    
-    # Check if at least one model is available
-    if xgb_model is not None or dt_model is not None:
-        models_loaded = True
-        print("Models loaded successfully")
-    else:
-        print("Warning: No models could be loaded. Some features may not work properly.")
-        
-except Exception as e:
-    print(f"Error setting up models: {str(e)}")
-    print("Warning: Model files not found. Please ensure model files are in the same directory.")
-    
-    # Create fallback models as a last resort
-    try:
-        dt_model = create_fallback_dt_model()
-        
-        # Create dummy training data to fit the model
-        dummy_X = np.random.rand(100, 26)  # 100 samples, 26 features
-        dummy_y = np.random.randint(0, 2, 100)  # Binary classification
-        
-        dt_model.fit(dummy_X, dummy_y)
-        
-        dt_pipeline = create_fallback_dt_pipeline()
-        
-        # Create dummy training data to fit the pipeline
-        # Use column names to avoid the feature names warning
-        column_names = [
-            'sy_snum', 'sy_pnum', 'disc_year', 'pl_orbper', 'pl_orbsmax', 
-            'pl_rade', 'pl_radj', 'pl_bmasse', 'pl_bmassj', 'pl_orbeccen', 
-            'pl_insol', 'pl_eqt', 'st_teff', 'st_rad', 'st_mass', 'st_met', 
-            'st_logg', 'sy_dist', 'star_planet_size', 'temp_diff', 'log_insol',
-            'planets_per_system', 'stars_in_system', 'discoverymethod_MICROLENSING',
-            'discoverymethod_RADIAL VELOCITY', 'discoverymethod_TRANSIT'
-        ]
-        dummy_X = pd.DataFrame(np.random.rand(100, 26), columns=column_names)
-        dummy_y = np.random.randint(0, 2, 100)  # Binary classification
-        
-        dt_pipeline.fit(dummy_X, dummy_y)
-        
-        models_loaded = True
-        print("Created and fitted fallback models")
-    except Exception as e2:
-        print(f"Failed to create fallback models: {str(e2)}")
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def preprocess_data(df):
-    """Preprocess the input data in the same way as the training pipeline"""
-    # Make a copy to avoid modifying the original dataframe
-    df_processed = df.copy()
-    
-    # Convert categorical columns to uppercase and strip whitespace
-    for col in df_processed.select_dtypes(include="object").columns:
-        df_processed[col] = df_processed[col].str.strip().str.upper()
-    
-    # Define the columns we need for prediction
-    required_columns = [
-        'sy_snum', 'sy_pnum', 'disc_year', 'pl_orbper', 'pl_orbsmax', 
-        'pl_rade', 'pl_radj', 'pl_bmasse', 'pl_bmassj', 'pl_orbeccen', 
-        'pl_insol', 'pl_eqt', 'st_teff', 'st_rad', 'st_mass', 'st_met', 
-        'st_logg', 'sy_dist'
-    ]
-    
-    # Check if all required columns are present
-    missing_cols = [col for col in required_columns if col not in df_processed.columns]
-    if missing_cols:
-        raise ValueError(f"Missing required columns: {', '.join(missing_cols)}")
-    
-    # Handle missing values - fill with median for numeric columns
-    num_cols = df_processed.select_dtypes(include=[np.number]).columns
-    for col in num_cols:
-        df_processed[col] = df_processed[col].fillna(df_processed[col].median())
-    
-    # Feature engineering
-    df_processed["star_planet_size"] = df_processed["st_rad"] * df_processed["pl_rade"]
-    df_processed["temp_diff"] = df_processed["st_teff"] - df_processed["pl_eqt"]
-    df_processed["log_insol"] = np.log10(df_processed["pl_insol"].replace(0, np.nan))
-    df_processed["planets_per_system"] = df_processed["sy_pnum"]
-    df_processed["stars_in_system"] = df_processed["sy_snum"]
-    
-    # One-hot encode discoverymethod if present
-    if 'discoverymethod' in df_processed.columns:
-        df_processed = pd.get_dummies(df_processed, columns=["discoverymethod"], drop_first=True)
-        
-        # Ensure all discoverymethod columns are present
-        if 'discoverymethod_MICROLENSING' not in df_processed.columns:
-            df_processed['discoverymethod_MICROLENSING'] = 0
-        if 'discoverymethod_RADIAL VELOCITY' not in df_processed.columns:
-            df_processed['discoverymethod_RADIAL VELOCITY'] = 0
-        if 'discoverymethod_TRANSIT' not in df_processed.columns:
-            df_processed['discoverymethod_TRANSIT'] = 0
-    else:
-        # Add default discoverymethod columns if not present
-        df_processed['discoverymethod_MICROLENSING'] = 0
-        df_processed['discoverymethod_RADIAL VELOCITY'] = 0
-        df_processed['discoverymethod_TRANSIT'] = 1  # Default to TRANSIT
-    
-    # Select only the columns needed for prediction
-    prediction_columns = [
-        'sy_snum', 'sy_pnum', 'disc_year', 'pl_orbper', 'pl_orbsmax', 
-        'pl_rade', 'pl_radj', 'pl_bmasse', 'pl_bmassj', 'pl_orbeccen', 
-        'pl_insol', 'pl_eqt', 'st_teff', 'st_rad', 'st_mass', 'st_met', 
-        'st_logg', 'sy_dist', 'star_planet_size', 'temp_diff', 'log_insol',
-        'planets_per_system', 'stars_in_system', 'discoverymethod_MICROLENSING',
-        'discoverymethod_RADIAL VELOCITY', 'discoverymethod_TRANSIT'
-    ]
-    
-    # Ensure all columns are present and in the right order
-    for col in prediction_columns:
-        if col not in df_processed.columns:
-            df_processed[col] = 0
-    
-    df_final = df_processed[prediction_columns]
-    
-    # Handle any remaining NaN values
-    imputer = SimpleImputer(strategy="median")
-    df_final = pd.DataFrame(imputer.fit_transform(df_final), columns=df_final.columns)
-    
-    return df_final
-
-def create_visualizations(df, predictions=None, prediction_probs=None):
-    """Return raw data for visualizations instead of generating images on the backend"""
-    visualizations_data = {
-        'features': {
-            'orbper': df['pl_orbper'].tolist() if 'pl_orbper' in df.columns else [],
-            'rade': df['pl_rade'].tolist() if 'pl_rade' in df.columns else [],
-            'teff': df['st_teff'].tolist() if 'st_teff' in df.columns else [],
-            'dist': df['sy_dist'].tolist() if 'sy_dist' in df.columns else []
-        }
-    }
-    
-    if predictions is not None:
-        pred_series = pd.Series(predictions)
-        counts = pred_series.value_counts().to_dict()
-        visualizations_data['predictions'] = {
-            'candidate': int(counts.get(0, 0)),
-            'confirmed': int(counts.get(1, 0))
-        }
-    
-    return visualizations_data
-
-def calculate_metrics(y_true, y_pred, y_prob=None):
-    """Calculate evaluation metrics"""
-    # Handle edge cases where metrics might be undefined
-    try:
-        metrics = {
-            'accuracy': accuracy_score(y_true, y_pred),
-            'precision': precision_score(y_true, y_pred, zero_division=0),
-            'recall': recall_score(y_true, y_pred, zero_division=0),
-            'f1_score': f1_score(y_true, y_pred, zero_division=0)
-        }
-        
-        if y_prob is not None:
-            try:
-                metrics['roc_auc'] = roc_auc_score(y_true, y_prob)
-            except:
-                metrics['roc_auc'] = 0.5  # Default to random guess if ROC AUC can't be calculated
-        
-        # Confusion matrix
-        cm = confusion_matrix(y_true, y_pred)
-        tn, fp, fn, tp = cm.ravel()
-        
-        metrics['true_negatives'] = int(tn)
-        metrics['false_positives'] = int(fp)
-        metrics['false_negatives'] = int(fn)
-        metrics['true_positives'] = int(tp)
-    except Exception as e:
-        print(f"Error calculating metrics: {str(e)}")
-        # Return default metrics if calculation fails
-        metrics = {
-            'accuracy': 0,
-            'precision': 0,
-            'recall': 0,
-            'f1_score': 0,
-            'roc_auc': 0.5,
-            'true_negatives': 0,
-            'false_positives': 0,
-            'false_negatives': 0,
-            'true_positives': 0
-        }
-    
-    return metrics
-
 @app.route('/')
 def index():
-    return render_template('index.html', models_loaded=models_loaded)
+    return render_template('index.html', models_loaded=True)
 
 @app.route('/upload', methods=['GET', 'POST'])
 def upload_file():
@@ -333,194 +45,66 @@ def upload_file():
             file.save(filepath)
             
             try:
-                # Read the CSV file
+                # Read the CSV file locally to show the table
                 df = pd.read_csv(filepath)
                 
-                # Check if the file has the required columns
-                required_columns = [
-                    'sy_snum', 'sy_pnum', 'disc_year', 'pl_orbper', 'pl_orbsmax', 
-                    'pl_rade', 'pl_radj', 'pl_bmasse', 'pl_bmassj', 'pl_orbeccen', 
-                    'pl_insol', 'pl_eqt', 'st_teff', 'st_rad', 'st_mass', 'st_met', 
-                    'st_logg', 'sy_dist'
-                ]
+                # Prepare data for API
+                # Convert the entire dataframe to JSON to send to Hugging Face
+                payload = {
+                    "type": "batch",
+                    "data": df.to_json(orient='records')
+                }
                 
-                missing_cols = [col for col in required_columns if col not in df.columns]
-                if missing_cols:
-                    flash(f'CSV file is missing required columns: {", ".join(missing_cols)}')
+                # Call Hugging Face Backend
+                response = requests.post(HF_API_URL, json=payload, timeout=30)
+                
+                if response.status_code != 200:
+                    flash(f"AI Engine Error: {response.text}")
                     return redirect(request.url)
                 
-                # Preprocess the data
-                df_processed = preprocess_data(df)
-                
-                # Make predictions only if models are loaded
-                xgb_predictions = None
-                xgb_probabilities = None
-                dt_predictions = None
-                dt_probabilities = None
-                
-                if xgb_model is not None:
-                    try:
-                        xgb_predictions = xgb_model.predict(df_processed)
-                        xgb_probabilities = xgb_model.predict_proba(df_processed)[:, 1]
-                    except Exception as e:
-                        print(f"Error making XGBoost predictions: {str(e)}")
-                        flash(f'Error making XGBoost predictions: {str(e)}')
-                
-                if dt_model is not None:
-                    try:
-                        dt_predictions = dt_model.predict(df_processed)
-                        dt_probabilities = dt_model.predict_proba(df_processed)[:, 1]
-                    except Exception as e:
-                        print(f"Error making Decision Tree predictions: {str(e)}")
-                        flash(f'Error making Decision Tree predictions: {str(e)}')
-                
-                # If neither model worked, show an error
-                if xgb_predictions is None and dt_predictions is None:
-                    flash('Error: No models available for prediction. Please check model files.')
-                    return redirect(request.url)
-                
-                # Use XGBoost predictions if available, otherwise use Decision Tree
-                if xgb_predictions is not None:
-                    predictions = xgb_predictions
-                    probabilities = xgb_probabilities
-                    model_name = "XGBoost"
-                else:
-                    predictions = dt_predictions
-                    probabilities = dt_probabilities
-                    model_name = "Decision Tree"
-                
-                # Create visualizations
-                visualizations = create_visualizations(df, predictions, probabilities)
-                
-                # Calculate metrics if true labels are available
-                metrics = None
-                if 'disposition' in df.columns:
-                    y_true = df['disposition'].apply(lambda x: 1 if x.upper() == "CONFIRMED" else 0)
-                    
-                    if xgb_predictions is not None:
-                        xgb_metrics = calculate_metrics(y_true, xgb_predictions, xgb_probabilities)
-                    else:
-                        xgb_metrics = None
-                    
-                    if dt_predictions is not None:
-                        dt_metrics = calculate_metrics(y_true, dt_predictions, dt_probabilities)
-                    else:
-                        dt_metrics = None
-                    
-                    metrics = {
-                        'xgb': xgb_metrics,
-                        'dt': dt_metrics
-                    }
-                
-                # Prepare data for display
-                df_display = df.copy()
-                
-                if xgb_predictions is not None:
-                    df_display['xgb_prediction'] = ['Confirmed' if p == 1 else 'Candidate' for p in xgb_predictions]
-                    df_display['xgb_confidence'] = [f"{p:.2%}" for p in xgb_probabilities]
-                
-                if dt_predictions is not None:
-                    df_display['dt_prediction'] = ['Confirmed' if p == 1 else 'Candidate' for p in dt_predictions]
-                    df_display['dt_confidence'] = [f"{p:.2%}" for p in dt_probabilities]
-                
-                # Convert dataframe to HTML for display
-                df_html = df_display.head(100).to_html(classes='table table-striped table-hover', index=False)
+                api_results = response.json()
                 
                 return render_template('results.html', 
-                                      df_html=df_html,
-                                      visualizations=visualizations,
-                                      metrics=metrics,
+                                      df_html=api_results['df_html'],
+                                      visualizations=api_results['visualizations'],
+                                      metrics=api_results.get('metrics'),
                                       filename=filename,
-                                      shape=df.shape,
-                                      model_name=model_name)
+                                      shape=api_results['shape'],
+                                      model_name=api_results['model_name'])
             
             except Exception as e:
-                print(f"Error processing file: {str(e)}")
                 flash(f'Error processing file: {str(e)}')
                 return redirect(request.url)
-        else:
-            flash('Invalid file type. Please upload a CSV file.')
-            return redirect(request.url)
-    
+            
     return render_template('upload.html')
 
 @app.route('/manual_input', methods=['GET', 'POST'])
 def manual_input():
     if request.method == 'POST':
         try:
-            # Get form data
-            data = {
-                'sy_snum': float(request.form['sy_snum']),
-                'sy_pnum': float(request.form['sy_pnum']),
-                'disc_year': int(request.form['disc_year']),
-                'pl_orbper': float(request.form['pl_orbper']),
-                'pl_orbsmax': float(request.form['pl_orbsmax']),
-                'pl_rade': float(request.form['pl_rade']),
-                'pl_radj': float(request.form['pl_radj']),
-                'pl_bmasse': float(request.form['pl_bmasse']),
-                'pl_bmassj': float(request.form['pl_bmassj']),
-                'pl_orbeccen': float(request.form['pl_orbeccen']),
-                'pl_insol': float(request.form['pl_insol']),
-                'pl_eqt': float(request.form['pl_eqt']),
-                'st_teff': float(request.form['st_teff']),
-                'st_rad': float(request.form['st_rad']),
-                'st_mass': float(request.form['st_mass']),
-                'st_met': float(request.form['st_met']),
-                'st_logg': float(request.form['st_logg']),
-                'sy_dist': float(request.form['sy_dist']),
-                'discoverymethod': request.form['discoverymethod'].upper()
+            # Collect form data
+            form_data = {k: v for k, v in request.form.items()}
+            
+            # Prepare data for API
+            payload = {
+                "type": "manual",
+                "data": form_data
             }
             
-            # Create dataframe from form data
-            df = pd.DataFrame([data])
+            # Call Hugging Face Backend
+            response = requests.post(HF_API_URL, json=payload, timeout=30)
             
-            # Preprocess the data
-            df_processed = preprocess_data(df)
-            
-            # Make predictions only if models are loaded
-            xgb_prediction = None
-            xgb_probability = None
-            dt_prediction = None
-            dt_probability = None
-            
-            if xgb_model is not None:
-                try:
-                    xgb_prediction = xgb_model.predict(df_processed)[0]
-                    xgb_probability = xgb_model.predict_proba(df_processed)[0, 1]
-                except Exception as e:
-                    print(f"Error making XGBoost predictions: {str(e)}")
-                    flash(f'Error making XGBoost predictions: {str(e)}')
-            
-            if dt_model is not None:
-                try:
-                    dt_prediction = dt_model.predict(df_processed)[0]
-                    dt_probability = dt_model.predict_proba(df_processed)[0, 1]
-                except Exception as e:
-                    print(f"Error making Decision Tree predictions: {str(e)}")
-                    flash(f'Error making Decision Tree predictions: {str(e)}')
-            
-            # If neither model worked, show an error
-            if xgb_prediction is None and dt_prediction is None:
-                flash('Error: No models available for prediction. Please check model files.')
+            if response.status_code != 200:
+                flash(f"AI Engine Error: {response.text}")
                 return redirect(request.url)
             
-            # Prepare results
-            results = {
-                'data': data
-            }
-            
-            if xgb_prediction is not None:
-                results['xgb_prediction'] = 'Confirmed' if xgb_prediction == 1 else 'Candidate'
-                results['xgb_confidence'] = f"{xgb_probability:.2%}"
-            
-            if dt_prediction is not None:
-                results['dt_prediction'] = 'Confirmed' if dt_prediction == 1 else 'Candidate'
-                results['dt_confidence'] = f"{dt_probability:.2%}"
+            results = response.json()
+            # Restore the original form data for display
+            results['data'] = form_data
             
             return render_template('manual_result.html', results=results)
         
         except Exception as e:
-            print(f"Error processing input: {str(e)}")
             flash(f'Error processing input: {str(e)}')
             return redirect(request.url)
     
@@ -530,5 +114,6 @@ def manual_input():
 def about():
     return render_template('about.html')
 
-# if __name__ == '__main__':
-#     app.run(debug=True)
+# For local development
+if __name__ == '__main__':
+    app.run(debug=True)
