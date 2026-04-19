@@ -1,0 +1,166 @@
+/* app/static/css/style.css */
+@import url('https://fonts.googleapis.com/css2?family=Michroma&family=Inter:wght@300;400;600&display=swap');
+
+:root {
+    --nasa-blue: #0032A0;
+    --neon-cyan: #00F3FF;
+    --deep-obsidian: rgba(10, 10, 15, 0.85);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --text-primary: #FFFFFF;
+    --text-muted: #B0B0B0;
+    --accent-glow: 0 0 15px rgba(0, 243, 255, 0.4);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    color: var(--text-primary);
+    background: #000;
+    background-image: url('../images/blackhole.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+h1, h2, h3, .navbar-brand {
+    font-family: 'Michroma', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+/* Glassmorphism Panels */
+.glass-panel {
+    background: var(--deep-obsidian);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    padding: 2rem;
+    position: relative;
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.glass-panel:hover {
+    border-color: var(--neon-cyan);
+    box-shadow: var(--accent-glow);
+}
+
+/* HUD elements (non-containerized feel) */
+.hud-corner {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--neon-cyan);
+}
+
+.tl { top: -2px; left: -2px; border-right: 0; border-bottom: 0; }
+.tr { top: -2px; right: -2px; border-left: 0; border-bottom: 0; }
+.bl { bottom: -2px; left: -2px; border-right: 0; border-top: 0; }
+.br { bottom: -2px; right: -2px; border-left: 0; border-top: 0; }
+
+/* Typography improvements */
+.hero-title {
+    font-size: 4rem;
+    background: linear-gradient(to bottom, #fff, var(--neon-cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 1.5rem;
+    line-height: 1.1;
+}
+
+.accent-text {
+    color: var(--neon-cyan);
+    text-shadow: var(--accent-glow);
+}
+
+/* Navigation Overhaul */
+.nav-space {
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--glass-border);
+    padding: 1rem 0;
+}
+
+.nav-link {
+    color: var(--text-muted) !important;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0 1rem;
+    transition: color 0.3s;
+}
+
+.nav-link:hover, .nav-link.active {
+    color: var(--neon-cyan) !important;
+    text-shadow: var(--accent-glow);
+}
+
+/* Buttons */
+.btn-nasa {
+    background: transparent;
+    border: 1px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    padding: 0.8rem 2rem;
+    font-family: 'Michroma', sans-serif;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-nasa:hover {
+    background: var(--neon-cyan);
+    color: #000;
+    box-shadow: var(--accent-glow);
+}
+
+/* Forms */
+.form-control {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid var(--glass-border) !important;
+    color: #fff !important;
+    border-radius: 0 !important;
+}
+
+.form-control:focus {
+    border-color: var(--neon-cyan) !important;
+    box-shadow: none !important;
+}
+
+/* Custom Table for Results */
+.table {
+    border-collapse: separate;
+    border-spacing: 0 10px;
+    color: #fff !important;
+}
+
+.table tr {
+    background: var(--deep-obsidian);
+    transition: transform 0.2s;
+}
+
+.table tr:hover {
+    transform: scale(1.01);
+    background: rgba(0, 243, 255, 0.05) !important;
+}
+
+.table td, .table th {
+    border: none !important;
+    padding: 1.5rem !important;
+}
+
+/* Footer */
+footer {
+    border-top: 1px solid var(--glass-border);
+    background: rgba(0, 0, 0, 0.8);
+    padding: 3rem 0;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}

@@ -579,7 +579,7 @@ def manual_input():
                 results['dt_prediction'] = 'Confirmed' if dt_prediction == 1 else 'Candidate'
                 results['dt_confidence'] = f"{dt_probability:.2%}"
             
-            return render_template('manual_results.html', results=results)
+            return render_template('manual_result.html', results=results)
         
         except Exception as e:
             print(f"Error processing input: {str(e)}")

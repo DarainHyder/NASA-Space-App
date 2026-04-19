@@ -1,162 +1,95 @@
-<!-- templates/upload.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload CSV - Exoplanet Detection with AI</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            background-color: #f8f9fa;
-            padding-top: 60px;
-        }
-        .upload-container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .upload-area {
-            border: 2px dashed #ccc;
-            border-radius: 10px;
-            padding: 40px;
-            text-align: center;
-            margin-bottom: 20px;
-            transition: all 0.3s;
-        }
-        .upload-area:hover {
-            border-color: #007bff;
-            background-color: rgba(0, 123, 255, 0.05);
-        }
-        .required-columns {
-            background-color: #f8f9fa;
-            border-radius: 5px;
-            padding: 15px;
-            margin-top: 20px;
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">Exoplanet AI</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('index') }}">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="{{ url_for('upload_file') }}">Upload CSV</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('manual_input') }}">Manual Input</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('about') }}">About</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+{% extends 'base.html' %}
 
-    <div class="container mt-5 upload-container">
-        <div class="card shadow">
-            <div class="card-body">
-                <h2 class="card-title text-center mb-4">Upload CSV File</h2>
-                
+{% block title %}Batch Analysis - EXO AI{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <h2 class="mb-5 text-center hero-title fs-1">BATCH ANALYSIS <span class="accent-text">UPLINK</span></h2>
+            
+            <div class="glass-panel p-5 mb-5">
+                <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+                <div class="hud-corner bl"></div><div class="hud-corner br"></div>
+
                 {% with messages = get_flashed_messages() %}
                 {% if messages %}
-                <div class="alert alert-danger">
+                <div class="alert glass-panel mb-4" style="border-left: 4px solid #ff4444; color: #ff4444;">
                     {% for message in messages %}
-                    {{ message }}
+                    <i class="bi bi-exclamation-triangle me-2"></i> {{ message }}
                     {% endfor %}
                 </div>
                 {% endif %}
                 {% endwith %}
 
                 <form method="post" enctype="multipart/form-data">
-                    <div class="upload-area">
-                        <i class="bi bi-cloud-upload fs-1 text-primary mb-3"></i>
-                        <h5>Drag and drop your CSV file here or click to browse</h5>
-                        <input type="file" name="file" class="form-control" id="fileInput" accept=".csv" required>
+                    <div class="upload-area p-5 mb-4 text-center" id="drop-zone">
+                        <i class="bi bi-cloud-arrow-up-fill accent-text display-1 mb-4"></i>
+                        <h4 class="mb-3">DEPLOY DATASET</h4>
+                        <p class="text-muted small">Drop your CSV file here or click to browse mission logs.</p>
+                        <input type="file" name="file" class="form-control d-none" id="fileInput" accept=".csv" required>
                     </div>
                     
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg">Upload and Analyze</button>
+                    <div class="text-center">
+                        <button type="submit" class="btn-nasa px-5">INITIALIZE ANALYSIS</button>
                     </div>
                 </form>
 
-                <div class="required-columns">
-                    <h5>Required Columns in CSV:</h5>
-                    <p>Your CSV file must contain the following columns:</p>
-                    <ul>
-                        <li>sy_snum - Number of stars in the system</li>
-                        <li>sy_pnum - Number of planets in the system</li>
-                        <li>disc_year - Year of discovery</li>
-                        <li>pl_orbper - Orbital period of the planet (days)</li>
-                        <li>pl_orbsmax - Semi-major axis of the planet's orbit (AU)</li>
-                        <li>pl_rade - Planetary radius (Earth radii)</li>
-                        <li>pl_radj - Planetary radius (Jupiter radii)</li>
-                        <li>pl_bmasse - Planetary mass (Earth masses)</li>
-                        <li>pl_bmassj - Planetary mass (Jupiter masses)</li>
-                        <li>pl_orbeccen - Orbital eccentricity</li>
-                        <li>pl_insol - Insolation flux (Earth flux)</li>
-                        <li>pl_eqt - Planet equilibrium temperature (Kelvin)</li>
-                        <li>st_teff - Effective temperature of the host star (Kelvin)</li>
-                        <li>st_rad - Stellar radius (Solar radii)</li>
-                        <li>st_mass - Stellar mass (Solar masses)</li>
-                        <li>st_met - Stellar metallicity</li>
-                        <li>st_logg - Stellar surface gravity</li>
-                        <li>sy_dist - Distance to the system (parsecs)</li>
-                        <li>discoverymethod (optional) - Method used for detection</li>
-                    </ul>
-                    <p class="mb-0"><strong>Note:</strong> If the CSV contains a 'disposition' column with values 'CONFIRMED' or 'CANDIDATE', the application will calculate evaluation metrics.</p>
+                <div class="mt-5 pt-4 border-top border-secondary">
+                    <h5 class="mb-4 accent-text">PROTOCOL REQUIREMENTS</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="text-muted small list-unstyled">
+                                <li><i class="bi bi-check2-circle accent-text me-2"></i>sy_snum - Stars in system</li>
+                                <li><i class="bi bi-check2-circle accent-text me-2"></i>sy_pnum - Planets in system</li>
+                                <li><i class="bi bi-check2-circle accent-text me-2"></i>pl_orbper - Orbital period</li>
+                                <li><i class="bi bi-check2-circle accent-text me-2"></i>pl_rade - Planet radius (R⊕)</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="text-muted small">Systems automatically analyze data against the latest K2 models. Ensure all 18 standard mission parameters are present in the uplink file.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <footer class="bg-dark text-white text-center py-3 mt-5">
-        <div class="container">
-            <p>&copy; 2025 Exoplanet Detection with AI. NASA Space Apps Challenge.</p>
-        </div>
-    </footer>
+<style>
+    .upload-area {
+        border: 1px dashed var(--glass-border);
+        background: rgba(255, 255, 255, 0.02);
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .upload-area:hover {
+        border-color: var(--neon-cyan);
+        background: rgba(0, 243, 255, 0.05);
+    }
+</style>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const fileInput = document.getElementById('fileInput');
-            const uploadArea = document.querySelector('.upload-area');
-            
-            uploadArea.addEventListener('click', function() {
-                fileInput.click();
-            });
-            
-            uploadArea.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                uploadArea.style.borderColor = '#007bff';
-                uploadArea.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
-            });
-            
-            uploadArea.addEventListener('dragleave', function(e) {
-                e.preventDefault();
-                uploadArea.style.borderColor = '#ccc';
-                uploadArea.style.backgroundColor = 'transparent';
-            });
-            
-            uploadArea.addEventListener('drop', function(e) {
-                e.preventDefault();
-                uploadArea.style.borderColor = '#ccc';
-                uploadArea.style.backgroundColor = 'transparent';
-                
-                if (e.dataTransfer.files.length) {
-                    fileInput.files = e.dataTransfer.files;
-                }
-            });
-        });
-    </script>
-</body>
-</html>
+{% block extra_js %}
+<script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('fileInput');
+
+    dropZone.onclick = () => fileInput.click();
+
+    dropZone.ondragover = (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = 'var(--neon-cyan)';
+    };
+
+    dropZone.ondragleave = () => {
+        dropZone.style.borderColor = 'var(--glass-border)';
+    };
+
+    dropZone.ondrop = (e) => {
+        e.preventDefault();
+        fileInput.files = e.dataTransfer.files;
+        dropZone.style.borderColor = 'var(--neon-cyan)';
+    };
+</script>
+{% endblock %}
+{% endblock %}

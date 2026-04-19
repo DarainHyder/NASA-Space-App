@@ -1,225 +1,108 @@
-<!-- templates/results.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Results - Exoplanet Detection with AI</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            background-color: #f8f9fa;
-            padding-top: 60px;
-        }
-        .results-container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        .visualization-card {
-            margin-bottom: 20px;
-        }
-        .visualization-card img {
-            max-width: 100%;
-            height: auto;
-        }
-        .metrics-card {
-            background-color: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        .table-container {
-            max-height: 500px;
-            overflow-y: auto;
-        }
-        .prediction-badge {
-            font-size: 0.8em;
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">Exoplanet AI</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('index') }}">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="{{ url_for('upload_file') }}">Upload CSV</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('manual_input') }}">Manual Input</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('about') }}">About</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+{% extends 'base.html' %}
 
-    <div class="container mt-5 results-container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>Analysis Results</h2>
-            <div>
-                <span class="badge bg-secondary">File: {{ filename }}</span>
-                <span class="badge bg-info">Shape: {{ shape }}</span>
-            </div>
-        </div>
+{% block title %}Analysis Report - EXO AI{% endblock %}
 
-        {% if metrics %}
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="metrics-card">
-                    <h4>XGBoost Model Metrics</h4>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p><strong>Accuracy:</strong> {{ "%.2f"|format(metrics.xgb.accuracy * 100) }}%</p>
-                            <p><strong>Precision:</strong> {{ "%.2f"|format(metrics.xgb.precision * 100) }}%</p>
-                            <p><strong>Recall:</strong> {{ "%.2f"|format(metrics.xgb.recall * 100) }}%</p>
-                        </div>
-                        <div class="col-md-6">
-                            <p><strong>F1 Score:</strong> {{ "%.4f"|format(metrics.xgb.f1_score) }}</p>
-                            {% if metrics.xgb.roc_auc %}
-                            <p><strong>ROC AUC:</strong> {{ "%.4f"|format(metrics.xgb.roc_auc) }}</p>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <h5>Confusion Matrix</h5>
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th></th>
-                                <th>Predicted Negative</th>
-                                <th>Predicted Positive</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <th>Actual Negative</th>
-                                <td>{{ metrics.xgb.true_negatives }}</td>
-                                <td>{{ metrics.xgb.false_positives }}</td>
-                            </tr>
-                            <tr>
-                                <th>Actual Positive</th>
-                                <td>{{ metrics.xgb.false_negatives }}</td>
-                                <td>{{ metrics.xgb.true_positives }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="metrics-card">
-                    <h4>Decision Tree Model Metrics</h4>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p><strong>Accuracy:</strong> {{ "%.2f"|format(metrics.dt.accuracy * 100) }}%</p>
-                            <p><strong>Precision:</strong> {{ "%.2f"|format(metrics.dt.precision * 100) }}%</p>
-                            <p><strong>Recall:</strong> {{ "%.2f"|format(metrics.dt.recall * 100) }}%</p>
-                        </div>
-                        <div class="col-md-6">
-                            <p><strong>F1 Score:</strong> {{ "%.4f"|format(metrics.dt.f1_score) }}</p>
-                            {% if metrics.dt.roc_auc %}
-                            <p><strong>ROC AUC:</strong> {{ "%.4f"|format(metrics.dt.roc_auc) }}</p>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <h5>Confusion Matrix</h5>
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th></th>
-                                <th>Predicted Negative</th>
-                                <th>Predicted Positive</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <th>Actual Negative</th>
-                                <td>{{ metrics.dt.true_negatives }}</td>
-                                <td>{{ metrics.dt.false_positives }}</td>
-                            </tr>
-                            <tr>
-                                <th>Actual Positive</th>
-                                <td>{{ metrics.dt.false_negatives }}</td>
-                                <td>{{ metrics.dt.true_positives }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card visualization-card">
-                    <div class="card-body">
-                        <h5 class="card-title">Feature Distributions</h5>
-                        <img src="data:image/png;base64,{{ visualizations.distributions }}" alt="Feature Distributions">
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card visualization-card">
-                    <div class="card-body">
-                        <h5 class="card-title">Correlation Heatmap</h5>
-                        <img src="data:image/png;base64,{{ visualizations.correlation }}" alt="Correlation Heatmap">
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {% if visualizations.prediction_distribution %}
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card visualization-card">
-                    <div class="card-body">
-                        <h5 class="card-title">Prediction Distribution</h5>
-                        <img src="data:image/png;base64,{{ visualizations.prediction_distribution }}" alt="Prediction Distribution">
-                    </div>
-                </div>
-            </div>
-            {% if visualizations.roc_curve %}
-            <div class="col-md-6">
-                <div class="card visualization-card">
-                    <div class="card-body">
-                        <h5 class="card-title">ROC Curve</h5>
-                        <img src="data:image/png;base64,{{ visualizations.roc_curve }}" alt="ROC Curve">
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-        </div>
-        {% endif %}
-
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Prediction Results (First 100 rows)</h5>
-                <div class="table-container">
-                    {{ df_html|safe }}
-                </div>
-            </div>
-        </div>
-
-        <div class="text-center mt-4">
-            <a href="{{ url_for('upload_file') }}" class="btn btn-primary">Upload Another File</a>
-            <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Home</a>
+{% block content %}
+<div class="container py-5">
+    <div class="row mb-5">
+        <div class="col-12 text-center">
+            <h2 class="hero-title fs-1">MISSION <span class="accent-text">REPORT</span></h2>
+            <p class="text-muted">Batch classification results for downlink: <span class="accent-text">{{ filename }}</span></p>
         </div>
     </div>
 
-    <footer class="bg-dark text-white text-center py-3 mt-5">
-        <div class="container">
-            <p>&copy; 2025 Exoplanet Detection with AI. NASA Space Apps Challenge.</p>
+    <div class="row g-4 mb-5">
+        <div class="col-md-3">
+            <div class="glass-panel text-center p-4">
+                <h6 class="text-muted small mb-2">TARGETS ANALYZED</h6>
+                <div class="fs-2 accent-text Michroma">{{ shape[0] }}</div>
+            </div>
         </div>
-    </footer>
+        <div class="col-md-3">
+            <div class="glass-panel text-center p-4">
+                <h6 class="text-muted small mb-2">PRIMARY ENGINE</h6>
+                <div class="fs-4 text-white Michroma">{{ model_name }}</div>
+            </div>
+        </div>
+        {% if metrics and metrics.xgb %}
+        <div class="col-md-3">
+            <div class="glass-panel text-center p-4">
+                <h6 class="text-muted small mb-2">XGB ACCURACY</h6>
+                <div class="fs-2 accent-text Michroma">{{ "%.1f"|format(metrics.xgb.accuracy * 100) }}%</div>
+            </div>
+        </div>
+        {% endif %}
+        {% if metrics and metrics.dt %}
+        <div class="col-md-3">
+            <div class="glass-panel text-center p-4">
+                <h6 class="text-muted small mb-2">DT ACCURACY</h6>
+                <div class="fs-2 accent-text Michroma">{{ "%.1f"|format(metrics.dt.accuracy * 100) }}%</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+    <div class="row mb-5">
+        <div class="col-12">
+            <h3 class="Michroma h5 mb-4 accent-text">SPECTRAL DATA VISUALIZATION</h3>
+            <div class="row g-4">
+                {% if visualizations.distributions %}
+                <div class="col-lg-6">
+                    <div class="glass-panel p-2">
+                        <img src="data:image/png;base64,{{ visualizations.distributions }}" class="img-fluid" style="filter: invert(0.9) hue-rotate(180deg) brightness(1.2);">
+                    </div>
+                </div>
+                {% endif %}
+                {% if visualizations.correlation %}
+                <div class="col-lg-6">
+                    <div class="glass-panel p-2">
+                        <img src="data:image/png;base64,{{ visualizations.correlation }}" class="img-fluid" style="filter: invert(0.9) hue-rotate(180deg) brightness(1.2);">
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <h3 class="Michroma h5 mb-4 accent-text">TELEMETRY LOGS (TOP 100)</h3>
+            <div class="glass-panel p-0 overflow-auto" style="max-height: 600px;">
+                <div class="table-responsive">
+                    {{ df_html | safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-5 text-center">
+        <a href="{{ url_for('upload_file') }}" class="btn-nasa">NEW MISSION</a>
+    </div>
+</div>
+
+<style>
+    /* Styling for the pandas-generated HTML table */
+    .table {
+        margin-bottom: 0 !important;
+        font-size: 0.85rem;
+    }
+    .table thead th {
+        background: rgba(0, 243, 255, 0.1) !important;
+        color: var(--neon-cyan) !important;
+        border-bottom: 1px solid var(--neon-cyan) !important;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        text-transform: uppercase;
+        font-family: 'Michroma', sans-serif;
+        font-size: 0.7rem;
+    }
+    .table tbody tr:nth-child(even) {
+        background: rgba(255, 255, 255, 0.02) !important;
+    }
+    .table-striped>tbody>tr:nth-of-type(odd)>* {
+        --bs-table-accent-bg: transparent !important;
+        color: #fff !important;
+    }
+</style>
+{% endblock %}
