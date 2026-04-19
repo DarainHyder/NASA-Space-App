@@ -1,6 +1,6 @@
 ---
 title: NASA Space API
-emoji: rocket
+emoji: 🚀
 colorFrom: blue
 colorTo: purple
 sdk: docker
